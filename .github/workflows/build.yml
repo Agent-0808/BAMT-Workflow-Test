@@ -18,6 +18,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 【优化1】配置 10GB 的虚拟内存 (Pagefile)
+      # 这允许我们在内存不足时使用磁盘，从而可以开启多线程编译而不崩溃
+      - name: Setup Pagefile
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 10GB
+          maximum-size: 12GB
+          disk-root: "C:"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -29,15 +38,27 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install Nuitka
-        run: pip install nuitka
+        run: pip install nuitka zstandard # zstandard 用于加速缓存压缩
+
+      # 【优化2】配置 Nuitka 缓存
+      # 这将缓存编译好的 C 对象文件，下次构建如果库没变，速度将起飞
+      - name: Nuitka Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Users\runneradmin\AppData\Local\Nuitka\Nuitka
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-nuitka-
 
       - name: Build Executable with Nuitka
         run: |
+          # 移除 --mingw64，默认使用 MSVC，速度更快且兼容性更好
+          # 移除 --low-memory，因为我们有了 Pagefile
+          # 增加 --jobs=2，利用 Github Runner 的两个核心
           python -m nuitka `
             --onefile `
-            --mingw64 `
-            --low-memory `
-            --jobs=1 `
+            --jobs=2 `
             --enable-plugin=tk-inter `
             --include-package=UnityPy `
             --include-package=UnityPy.resources `
@@ -49,11 +70,12 @@ jobs:
             --include-package-data=tkinterdnd2 `
             --include-data-dir=assets=assets `
             --include-data-dir=locales=locales `
+            --no-prefer-source-code `
             --output-dir=build `
             --output-filename=BA-Modding-Toolkit.exe `
             --assume-yes-for-downloads `
             main.pyw
-        shell: pwsh  # 使用 PowerShell 以支持多行命令
+        shell: pwsh
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -61,11 +83,13 @@ jobs:
           name: BA-Modding-Toolkit-Windows
           path: build/BA-Modding-Toolkit.exe
 
+      # 修正：原来的逻辑是用 Compress-Archive 生成 zip 但命名为 exe，这会导致文件损坏或无法直接运行
+      # 这里改为直接重命名文件
       - name: Rename The File (When Trigger With Tag)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           $tag_name = "${{ github.ref_name }}"
-          Compress-Archive -Path build/BA-Modding-Toolkit.exe -DestinationPath build/BA-Modding-Toolkit-$tag_name.exe
+          Move-Item -Path build/BA-Modding-Toolkit.exe -Destination build/BA-Modding-Toolkit-$tag_name.exe
         shell: powershell
 
       - name: Upload Release Asset (When Trigger With Tag)
