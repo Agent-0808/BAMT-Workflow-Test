@@ -18,16 +18,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 【保留优化】开启 10GB 虚拟内存
-      # 这对于 MinGW 尤为重要，因为 MinGW 编译时比 MSVC 更吃内存
-      # 有了这个，就可以安全开启 --jobs=2 甚至更多，而不会崩溃
-      - name: Setup Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.4
-        with:
-          minimum-size: 10GB
-          maximum-size: 12GB
-          disk-root: "C:"
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -38,64 +28,55 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      - name: Install Nuitka
-        run: pip install nuitka zstandard
-
-      # 【保留优化】Nuitka 缓存
-      # 注意：MinGW 的缓存和 MSVC 不通用，这里配置好后，第二次构建会非常快
-      - name: Nuitka Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:\Users\runneradmin\AppData\Local\Nuitka\Nuitka
-          key: ${{ runner.os }}-nuitka-mingw-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-nuitka-mingw-
-
-      # 恢复了 --mingw64 以保证兼容性
-      # 保留了 --jobs=2 (利用双核加速)，因为有虚拟内存撑腰，不会爆
-      # 移除了 --low-memory，因为会显著拖慢速度且我们现在有虚拟内存
       - name: Build Executable with Nuitka
-        run: |
-          python -m nuitka `
-            --onefile `
-            --mingw64 `
-            --jobs=2 `
-            --enable-plugin=tk-inter `
-            --include-package=UnityPy `
-            --include-package=UnityPy.resources `
-            --include-package=UnityPy.classes `
-            --include-package=PIL `
-            --include-package=tkinterdnd2 `
-            --include-package-data=UnityPy `
-            --include-package-data=PIL `
-            --include-package-data=tkinterdnd2 `
-            --include-package-data=archspec `
-            --include-data-dir=assets=assets `
-            --include-data-dir=locales=locales `
-            --no-prefer-source-code `
-            --output-dir=build `
-            --output-filename=BA-Modding-Toolkit.exe `
-            --assume-yes-for-downloads `
-            main.pyw
-        shell: pwsh
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: main.pyw
+          mode: standalone 
+          low-memory: true
+          mingw64: true
+          enable-plugins: tk-inter
+          include-package: |
+            UnityPy
+            UnityPy.resources
+            UnityPy.classes
+            PIL
+            tkinterdnd2
+          include-package-data: |
+            UnityPy
+            PIL
+            tkinterdnd2
+            archspec
+          include-data-dir: |
+            assets=assets
+            locales=locales
+          output-dir: build
+          output-file: "BA-Modding-Toolkit.exe"
+          assume-yes-for-downloads: true
+          # show-memory: true 
 
+      # 修正1：上传生成的整个 dist 文件夹，而不是单个 exe
+      # standalone 模式下，必须包含依赖文件夹才能运行
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: BA-Modding-Toolkit-Windows
-          path: build/BA-Modding-Toolkit.exe
+          path: build/main.dist 
 
-      - name: Rename The File (When Trigger With Tag)
+      # 修正2：将整个 dist 文件夹压缩为 zip 进行 Release
+      # 这样用户解压后可以直接运行，不会报错缺少 DLL
+      - name: Zip Release Asset (When Trigger With Tag)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           $tag_name = "${{ github.ref_name }}"
-          # 修正了之前的压缩命令，改为直接重命名，方便用户直接使用
-          Move-Item -Path build/BA-Modding-Toolkit.exe -Destination build/BA-Modding-Toolkit-$tag_name.exe
+          # 将 main.dist 文件夹内的所有内容压缩到 zip 中
+          Compress-Archive -Path build/main.dist/* -DestinationPath build/BA-Modding-Toolkit-$tag_name.zip
         shell: powershell
 
+      # 修正3：上传 Zip 文件而不是 exe 文件
       - name: Upload Release Asset (When Trigger With Tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: build/BA-Modding-Toolkit-${{ github.ref_name }}.exe
+          files: build/BA-Modding-Toolkit-${{ github.ref_name }}.zip
