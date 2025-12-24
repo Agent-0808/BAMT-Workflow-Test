@@ -52,11 +52,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuitka-mingw-
 
+      # 恢复了 --mingw64 以保证兼容性
+      # 保留了 --jobs=2 (利用双核加速)，因为有虚拟内存撑腰，不会爆
+      # 移除了 --low-memory，因为会显著拖慢速度且我们现在有虚拟内存
       - name: Build Executable with Nuitka
         run: |
-          # 恢复了 --mingw64 以保证兼容性
-          # 保留了 --jobs=2 (利用双核加速)，因为有虚拟内存撑腰，不会爆
-          # 移除了 --low-memory，因为会显著拖慢速度且我们现在有虚拟内存
           python -m nuitka `
             --onefile `
             --mingw64 `
@@ -70,6 +70,7 @@ jobs:
             --include-package-data=UnityPy `
             --include-package-data=PIL `
             --include-package-data=tkinterdnd2 `
+            --include-package-data=archspec `
             --include-data-dir=assets=assets `
             --include-data-dir=locales=locales `
             --no-prefer-source-code `
