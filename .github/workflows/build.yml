@@ -36,16 +36,24 @@ jobs:
           script-name: main.pyw
           mode: onefile
           enable-plugins: tk-inter
+          jobs: 1
+          
+          # 不要进入 UnityPy 内部进行编译
+          nuitka-options: |
+            --low-memory
+            --nofollow-import-to=UnityPy
+          
+          # 从强制编译列表中移除 UnityPy，只保留其他的
           include-package: |
-            UnityPy
-            UnityPy.resources
-            UnityPy.classes
             PIL
             tkinterdnd2
+          
+          # 确保 UnityPy 的源码/数据作为资源被包含进来
           include-package-data: |
             UnityPy
             PIL
             tkinterdnd2
+
           include-data-dir: assets=assets
           windows-console-mode: disable
           output-dir: build
