@@ -45,26 +45,29 @@ jobs:
           script-name: main.pyw
           mode: onefile
           enable-plugins: tk-inter
+          
+          # 【修正】参数直接写在 with 下
           jobs: 1
+          low-memory: true
           
-          # 1. nofollow-import-to: 告诉 Nuitka 只要遇到 import UnityPy 就跳过，不要编译
-          # 2. include-data-dir: 手动把刚才获取到的源码目录塞进 exe 里，模拟成一个包
-          nuitka-options: |
-            --low-memory
-            --nofollow-import-to=UnityPy
-            --include-data-dir=${{ env.UNITYPY_PATH }}=UnityPy
+          # 【修正】告诉 Nuitka 跳过 UnityPy 的编译
+          nofollow-import-to: UnityPy
           
-          # 从这里移除了 UnityPy，只保留其他库
+          # 仅编译其他库
           include-package: |
             PIL
             tkinterdnd2
-          
-          # 这里也移除了 UnityPy，因为上面已经用 include-data-dir 包含整个文件夹了
+            
           include-package-data: |
             PIL
             tkinterdnd2
-
-          include-data-dir: assets=assets
+          
+          # 【修正】将源码路径作为数据目录包含进去
+          # 注意：GitHub Actions 支持在 inputs 中使用多行字符串
+          include-data-dir: |
+            assets=assets
+            ${{ env.UNITYPY_PATH }}=UnityPy
+            
           windows-console-mode: disable
           output-dir: build
           output-file: "BA-Modding-Toolkit.exe"
