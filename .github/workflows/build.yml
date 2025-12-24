@@ -1,16 +1,15 @@
 name: build executable file
-
 on:
   push:
     branches:
       - main
     tags:
-      - 'v*' # Trigger when push tag start with v (etc. v0.1.0)
-  workflow_dispatch: # Manual
-  
+      - 'v*'
+  workflow_dispatch:
+
 permissions:
   contents: write
-  
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -29,15 +28,6 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      # 【新增步骤】获取 UnityPy 的安装路径并存入环境变量
-      - name: Get UnityPy Path
-        id: get-path
-        run: |
-          # 使用 Python 打印 UnityPy 的所在目录
-          $unitypy_path = python -c "import UnityPy, os; print(os.path.dirname(UnityPy.__file__))"
-          echo "UNITYPY_PATH=$unitypy_path" >> $env:GITHUB_ENV
-        shell: powershell
-
       - name: Build Executable with Nuitka
         uses: Nuitka/Nuitka-Action@main
         with:
@@ -45,32 +35,24 @@ jobs:
           script-name: main.pyw
           mode: onefile
           enable-plugins: tk-inter
-          
-          # 【修正】参数直接写在 with 下
-          jobs: 1
-          low-memory: true
-          
-          # 【修正】告诉 Nuitka 跳过 UnityPy 的编译
-          nofollow-import-to: UnityPy
-          
-          # 仅编译其他库
           include-package: |
+            UnityPy
+            UnityPy.resources
+            UnityPy.classes
             PIL
             tkinterdnd2
-            
           include-package-data: |
+            UnityPy
             PIL
             tkinterdnd2
-          
-          # 【修正】将源码路径作为数据目录包含进去
-          # 注意：GitHub Actions 支持在 inputs 中使用多行字符串
-          include-data-dir: |
-            assets=assets
-            ${{ env.UNITYPY_PATH }}=UnityPy
-            
+          include-data-dir: assets=assets
           windows-console-mode: disable
           output-dir: build
           output-file: "BA-Modding-Toolkit.exe"
+          extra-options: |
+            --low-memory
+            --jobs=1
+            --mingw64
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
