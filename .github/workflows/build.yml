@@ -28,47 +28,31 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      - name: Build Executable with Nuitka (low memory)
+      - name: Build Executable with Nuitka
         uses: Nuitka/Nuitka-Action@main
         with:
           nuitka-version: main
           script-name: main.pyw
-
-          # ⭐ 不要 onefile，极大减少内存
-          mode: standalone
-
-          # ⭐ 单线程，防止编译期内存叠加
-          jobs: 1
-
-          # ⭐ 打印内存使用，方便观察
-          show-memory: true
-
-          # ⭐ 自动下载依赖
-          assume-yes-for-downloads: true
-
-          # ⭐ Tk 支持
+          mode: standalone  # Reduces memory vs. onefile by avoiding single-file packing
+          low-memory: true  # Enables memory-friendly options and sets jobs=1 automatically
+          mingw64: true  # Switches to MinGW64 compiler to avoid MSVC heap errors
           enable-plugins: tk-inter
-
-          # ⭐ 明确包含 UnityPy
           include-package: |
             UnityPy
             UnityPy.resources
             UnityPy.classes
             PIL
             tkinterdnd2
-
           include-package-data: |
             UnityPy
             PIL
             tkinterdnd2
-
           include-data-dir: assets=assets
 
-          # ⭐ 不禁用控制台（默认就是显示）
-          # 不写 disable-console / enable-console 即可
-
           output-dir: build
-          output-file: BA-Modding-Toolkit.exe
+          output-file: "BA-Modding-Toolkit.exe"
+          assume-yes-for-downloads: true  # Auto-confirms downloads like MinGW64
+          show-memory: true  # Optional: Monitors memory usage in logs for debugging
 
 
       - name: Upload Artifact
