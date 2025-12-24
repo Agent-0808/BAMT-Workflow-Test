@@ -28,31 +28,32 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
+      - name: Install Nuitka
+        run: pip install nuitka
+
       - name: Build Executable with Nuitka
-        uses: Nuitka/Nuitka-Action@main
-        with:
-          nuitka-version: main
-          script-name: main.pyw
-          mode: onefile
-          enable-plugins: tk-inter
-          include-package: |
-            UnityPy
-            UnityPy.resources
-            UnityPy.classes
-            PIL
-            tkinterdnd2
-          include-package-data: |
-            UnityPy
-            PIL
-            tkinterdnd2
-          include-data-dir: assets=assets
-          windows-console-mode: disable
-          output-dir: build
-          output-file: "BA-Modding-Toolkit.exe"
-          extra-options: |
-            --low-memory
-            --jobs=1
-            --mingw64
+        run: |
+          python -m nuitka `
+            --onefile `
+            --mingw64 `
+            --low-memory `
+            --jobs=1 `
+            --enable-plugin=tk-inter `
+            --include-package=UnityPy `
+            --include-package=UnityPy.resources `
+            --include-package=UnityPy.classes `
+            --include-package=PIL `
+            --include-package=tkinterdnd2 `
+            --include-package-data=UnityPy `
+            --include-package-data=PIL `
+            --include-package-data=tkinterdnd2 `
+            --include-data-dir=assets=assets `
+            --windows-console-mode=disable `
+            --output-dir=build `
+            --output-filename=BA-Modding-Toolkit.exe `
+            --assume-yes-for-downloads `
+            main.pyw
+        shell: pwsh  # 使用 PowerShell 以支持多行命令
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
