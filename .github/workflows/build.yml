@@ -33,50 +33,54 @@ jobs:
         with:
           nuitka-version: main
           script-name: main.pyw
-          mode: standalone 
+          mode: onefile
           low-memory: true
           mingw64: true
           enable-plugins: tk-inter
+          # 包含代码依赖包
           include-package: |
             UnityPy
             UnityPy.resources
             UnityPy.classes
             PIL
             tkinterdnd2
+          # 包含依赖包的数据文件
           include-package-data: |
             UnityPy
             PIL
             tkinterdnd2
             archspec
-          include-data-dir: |
-            assets=assets
-            locales=locales
           output-dir: build
           output-file: "BA-Modding-Toolkit.exe"
           assume-yes-for-downloads: true
-          # show-memory: true 
 
-      # 修正1：上传生成的整个 dist 文件夹，而不是单个 exe
-      # standalone 模式下，必须包含依赖文件夹才能运行
+      # 复制外部资源文件夹到 build 目录，与 exe 并列
+      - name: Copy External Resources
+        run: |
+          Copy-Item -Path "locales" -Destination "build/locales" -Recurse
+          Copy-Item -Path "assets" -Destination "build/assets" -Recurse
+        shell: powershell
+
+      # 上传 Artifact (方便调试)
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BA-Modding-Toolkit-Windows
-          path: build/main.dist 
+          name: BA-Modding-Toolkit-Windows-Build
+          path: build/
 
-      # 修正2：将整个 dist 文件夹压缩为 zip 进行 Release
-      # 这样用户解压后可以直接运行，不会报错缺少 DLL
+      # 打包成 Zip (包含 exe + 外部文件夹)
       - name: Zip Release Asset (When Trigger With Tag)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           $tag_name = "${{ github.ref_name }}"
-          # 将 main.dist 文件夹内的所有内容压缩到 zip 中
-          Compress-Archive -Path build/main.dist/* -DestinationPath build/BA-Modding-Toolkit-$tag_name.zip
+          # 进入 build 目录打包所有内容
+          cd build
+          Compress-Archive -Path * -DestinationPath "../BA-Modding-Toolkit-$tag_name.zip"
         shell: powershell
 
-      # 修正3：上传 Zip 文件而不是 exe 文件
+      # 上传 Zip
       - name: Upload Release Asset (When Trigger With Tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: build/BA-Modding-Toolkit-${{ github.ref_name }}.zip
+          files: BA-Modding-Toolkit-${{ github.ref_name }}.zip
