@@ -54,7 +54,15 @@ jobs:
           output-file: "BA-Modding-Toolkit.exe"
           assume-yes-for-downloads: true
 
-      # 复制外部资源文件夹到 build 目录，与 exe 并列
+      # 清理 Nuitka 生成的中间文件夹
+      - name: Cleanup Nuitka Intermediate Files
+        run: |
+          Remove-Item -Path "build/main.build" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "build/main.dist" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "build/main.onefile-build" -Recurse -Force -ErrorAction SilentlyContinue
+        shell: powershell
+
+      # 复制外部资源文件夹到 build 目录
       - name: Copy External Resources
         run: |
           Copy-Item -Path "locales" -Destination "build/locales" -Recurse
@@ -73,7 +81,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           $tag_name = "${{ github.ref_name }}"
-          # 进入 build 目录打包所有内容
           cd build
           Compress-Archive -Path * -DestinationPath "../BA-Modding-Toolkit-$tag_name.zip"
         shell: powershell
